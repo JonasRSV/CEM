@@ -10,7 +10,7 @@ STATE_SPACE  = 4
 ENV = 'CartPole-v0'
 
 EPOCHS       = 1000
-ENV_ITER     = 10
+ENV_ITER     = 4
 MAX_ENV_STEP = 100
 
 def train(env, actor):
