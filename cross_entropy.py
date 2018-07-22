@@ -61,7 +61,8 @@ class cross_entropy():
 
         self.s_agents_ops = s_agents_ops
         self.fitness      = fitness
-        self.train_op     = (u_agents_op, a_apex_op, u_sigma_op, u_mus_op)
+        self.u_random_op  = (u_sigma_op, u_mus_op)
+        self.u_agents_ops = (u_agents_op, a_apex_op)
         self.s_apex_op    = s_apex_op
         self.apexes       = apexes
 
@@ -197,8 +198,9 @@ class cross_entropy():
         return self.sess.run(self.outputs, feed_dict={self.inputs: state})
 
     def train(self, fitnesses):
-        _, apex = self.sess.run((self.train_op, self.apexes), feed_dict={self.fitness: fitnesses})
-        return apex
+        self.sess.run(self.u_random_op, feed_dict={self.fitness: fitnesses})
+        self.sess.run(self.u_agents_ops, feed_dict={self.fitness: fitnesses})
+        return None
     
     def __len__(self):
         return self.agents

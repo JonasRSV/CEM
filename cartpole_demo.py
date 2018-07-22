@@ -9,7 +9,7 @@ STATE_SPACE  = 4
 
 ENV = 'CartPole-v0'
 
-EPOCHS       = 20
+EPOCHS       = 5
 ENV_ITER     = 10
 MAX_ENV_STEP = 200
 
@@ -37,7 +37,7 @@ def train(env, actor):
             fitness /= ENV_ITER
             fitnesses.append(fitness)
 
-        apex = actor.train(fitnesses)
+        actor.train(fitnesses)
         actor.add_scalar("Fitness", max(fitnesses))
         actor.summarize()
 
@@ -76,7 +76,7 @@ if __name__ == "__main__":
 
     env   = gym.make(ENV)
     with tf.Session() as sess:
-        actor = ce.cross_entropy(sess, STATE_SPACE, ACTION_SPACE, agents=30)
+        actor = ce.cross_entropy(sess, STATE_SPACE, ACTION_SPACE, agents=100, inheritance=0.1)
 
         saver = tf.train.Saver()
 
