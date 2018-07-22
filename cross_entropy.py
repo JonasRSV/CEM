@@ -119,6 +119,8 @@ class cross_entropy():
 
             agent_network_vars.append(layer_variables)
 
+            previous_index = var_end
+
         set_agent_op = [network_var.assign(agent_var)
                             for network_var, agent_var in 
                                 zip(network_variables, agent_network_vars)]

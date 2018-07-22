@@ -9,7 +9,7 @@ STATE_SPACE  = 4
 
 ENV = 'CartPole-v0'
 
-EPOCHS       = 5
+EPOCHS       = 10
 ENV_ITER     = 10
 MAX_ENV_STEP = 200
 
