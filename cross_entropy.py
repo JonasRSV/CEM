@@ -14,11 +14,11 @@ L3_VARIABLES = 10
 
 class cross_entropy():
 
-    def __init__(self, state_space, action_space, agents,
-                 sample_mu, sample_sigma, max_sigma=100,
-                 inheritance=0.5):
+    def __init__(self, sess, state_space, action_space, agents=10,
+                 sample_mu=0, sample_sigma=4, max_sigma=100,
+                 inheritance=0.2):
 
-
+        self.sess         = sess
         self.state_space  = state_space
         self.action_space = action_space
         self.agents       = agents
@@ -28,22 +28,47 @@ class cross_entropy():
         self.max_sigma     = max_sigma
         self.inheritance   = inheritance
 
+        #################
+        # For summaries #
+        #################
+        self.global_step = 0
+        self.summaries   = []
+
         self.inputs, self.outputs = self.build_network()
-        self.network_variables    = tf.trainable_variables()
+        network_variables    = tf.trainable_variables()
 
-        update_ops       = []
-        tensor_variables = []
-
-        for _ in range(agents):
-            variables, update_op = self.build_agent()
-
-            tensor_variables.append(variables)
-            update_ops.append(update_op)
-
-        self.tensor_variables = tf.stack(tensor_variables)
         self.number_of_vars   = self.state_space * L1_VARIABLES\
                               + L2_VARIABLES * L2_VARIABLES\
                               + L3_VARIABLES * self.action_space
+        
+        self.apex_variables, s_apex_op = self.build_agent("Apex", network_variables)
+
+        s_agents_ops  = []
+        as_vars       = []
+
+        for i in range(agents):
+            a_vars, s_agent_op = self.build_agent(str(i), network_variables)
+
+            as_vars.append(a_vars)
+            s_agents_ops.append(s_agent_op)
+
+        fitness\
+        , u_sigma_op\
+        , u_mus_op\
+        , u_agents_op\
+        , a_apex_op\
+        , apexes = self.build_distributions(as_vars)
+
+        self.s_agents_ops = s_agents_ops
+        self.fitness      = fitness
+        self.train_op     = (u_agents_op, a_apex_op, u_sigma_op, u_mus_op)
+        self.s_apex_op    = s_apex_op
+        self.apexes       = apexes
+
+        ##################
+        # Summary Writer #
+        ##################
+        self.summary_w   = tf.summary.FileWriter("summaries/", sess.graph)
 
     def build_network(self):
 
@@ -51,7 +76,7 @@ class cross_entropy():
         layer2 = network_variable([L2_VARIABLES, L2_VARIABLES])
         layer3 = network_variable([L3_VARIABLES, self.action_space])
 
-        inputs = tf.placeholder([None, self.state_space], dtype=tf.float32)
+        inputs = tf.placeholder(shape=[None, self.state_space], dtype=tf.float32)
 
         #########
         # Graph #
@@ -68,66 +93,132 @@ class cross_entropy():
 
         return inputs, out
 
-    def build_agent(self):
+    def build_agent(self, name, network_variables):
 
-        agent_variables = []
-        for variable in self.network_variables:
-            agent_variables.append(
-                    agent_variable(variable.shape, 
-                                   self.sample_mu,
-                                   self.sample_sigma))
+        a_vars = agent_variable([self.number_of_vars], 
+                               self.sample_mu, 
+                               self.sample_sigma)
 
+        #############
+        # Summaries #
+        #############
+        # mean, variance = tf.nn.moments(a_vars, [0])
+        # self.summaries.append(tf.summary.scalar(name + "/mean", mean))
+
+        previous_index     = 0
+        agent_network_vars = []
+        for variable in network_variables:
+            network_var_shape = variable.shape
+
+            var_start = previous_index
+            var_end   = previous_index + np.prod(network_var_shape)
+            
+            layer_variables  = a_vars[var_start:var_end]
+            layer_variables  = tf.reshape(layer_variables, network_var_shape)
+
+            agent_network_vars.append(layer_variables)
 
         set_agent_op = [network_var.assign(agent_var)
                             for network_var, agent_var in 
-                                zip(self.network_variables, agent_variables)]
+                                zip(network_variables, agent_network_vars)]
 
-        return agent_variables, set_agent_op
+        return a_vars, set_agent_op
 
-    def build_distributions(self):
+    def build_distributions(self, as_vars):
 
-        sigmas    = tf.Variable(tf.zeros(self.number_of_vars))
-        mus       = tf.Variable(tf.zeros(self.number_of_vars))
+        as_vars_stack = tf.stack(as_vars)
 
-        dist_vars = tf.transpose(self.tensor_variables)
+        sigmas   = tf.Variable(tf.zeros(self.number_of_vars), dtype=tf.float32)
+        mus      = tf.Variable(tf.zeros(self.number_of_vars), dtype=tf.float32)
+        CEM_dist = tf.distributions.Normal(loc=mus, scale=sigmas)
 
-        fitness = tf.placeholder([self.agents], dtype=tf.float32)
-        apex    = tf.nn.top_k(fitness, k=self.agents * self.inheritance, sorted=False)
+        #############
+        # Summaries #
+        #############
+        mean, variance = tf.nn.moments(sigmas, [0])
+        self.summaries.append(tf.summary.scalar("sigmas/mean", mean))
+        self.summaries.append(tf.summary.scalar("sigmas/variance", variance))
 
-        def sigmify(variable_row):
-            variable_row = tf.gather_nd(variable_row, apex)
-            _, variance = tf.moments(variable_row)
-            return tf.sqrt(variance)
+        mean, variance = tf.nn.moments(mus, [0])
+        self.summaries.append(tf.summary.scalar("mus/mean", mean))
+        self.summaries.append(tf.summary.scalar("mus/variance", variance))
 
-        def muify(variable_row):
-            variables = tf.gather_nd(variable_row, apex) 
+        ###################
+        # Get best agents #
+        ###################
+        fitness = tf.placeholder(shape=[self.agents], dtype=tf.float32)
+        _, apexes = tf.nn.top_k(fitness, k=int(self.agents * self.inheritance), sorted=True)
+
+        ######################
+        # Remember best apex #
+        ######################
+
+        apex_agent = apexes[0]
+        a_apex_op  = self.apex_variables.assign(as_vars_stack[apex_agent])
+
+        def ev_sigma(variable_row):
+            variable_row = tf.gather(variable_row, apexes)
+            _, variance = tf.nn.moments(variable_row, 0)
+            return tf.clip_by_value(tf.sqrt(variance),
+                                    -self.max_sigma,
+                                    self.max_sigma)
+
+        def ev_mu(variable_row):
+            variables = tf.gather(variable_row, apexes) 
             return tf.reduce_mean(variables)
 
+        variable_rows = tf.transpose(as_vars_stack)
 
-        new_sigmas = tf.map_fn(sigmify, dist_vars)
-        new_mus    = tf.map_fn(muify, dist_vars)
+        n_sigmas = tf.map_fn(ev_sigma, variable_rows)
+        n_mus    = tf.map_fn(ev_mu, variable_rows)
 
-        update_sigmas_op = [old_sigma.assign(new_sigma) 
-                                for old_sigma, new_sigma 
-                                    in zip(sigmas, new_sigmas)]
+        update_sigmas_op = sigmas.assign(n_sigmas) 
+        update_mus_op    = mus.assign(n_mus)
 
-        update_mus_op    = [old_mu.assign(new_mu) 
-                                for old_mu, new_mu 
-                                    in zip(mus, new_mus)]
+        n_agents_dists   = tf.unstack(CEM_dist.sample(self.agents))
 
-        def update_agent(agent_vars):
-            agent_new_vars = tf.random_normal(agent_vars.shape, 
+        update_agents_op = [agent.assign(dist)
+                                for agent, dist, in zip(as_vars, n_agents_dists)]
 
-        update_agents_op =
+        return fitness\
+               ,update_sigmas_op\
+               , update_mus_op\
+               , update_agents_op\
+               , a_apex_op\
+               , apexes
 
-        
-        
+    def set_apex(self):
+        self.sess.run(self.s_apex_op)
 
+    def set_agent(self, agent):
+        self.sess.run(self.s_agents_ops[agent])
 
-    def __call__(self, actor, state):
-        return 0
+    def __call__(self, state):
+        return self.sess.run(self.outputs, feed_dict={self.inputs: state})
+
+    def train(self, fitnesses):
+        _, apex = self.sess.run((self.train_op, self.apexes), feed_dict={self.fitness: fitnesses})
+        return apex
     
     def __len__(self):
-        return 2
+        return self.agents
+
+    def summarize(self):
+        summaries = self.sess.run(self.summaries)
+
+        for summary in summaries:
+            self.summary_w.add_summary(summary, self.global_step)
+
+        self.summary_w.flush()
+        self.global_step += 1
+
+
+    def add_scalar(self, tag, value):
+        summary = tf.Summary()
+        summary.value.add(tag=tag, simple_value=float(value))
+
+        self.summary_w.add_summary(summary, self.global_step)
+        self.summary_w.flush()
+
 
 
