@@ -8,15 +8,15 @@ def agent_variable(shape, mu, sigma):
     initial = tf.truncated_normal(shape, mean=mu, stddev=sigma)
     return tf.Variable(initial, dtype=tf.float32)
 
-L1_VARIABLES = 10
-L2_VARIABLES = 10
-L3_VARIABLES = 10
+L1_VARIABLES = 5
+L2_VARIABLES = 5
+L3_VARIABLES = 5
 
 class cross_entropy():
 
     def __init__(self, sess, state_space, action_space, agents=10,
-                 sample_mu=0, sample_sigma=4, max_sigma=100,
-                 inheritance=0.2):
+                 sample_mu=0, sample_sigma=10, max_sigma=100,
+                 inheritance=0.5):
 
         self.sess         = sess
         self.state_space  = state_space
@@ -149,8 +149,11 @@ class cross_entropy():
         ###################
         # Get best agents #
         ###################
+        num_of_apexes     = int(self.agents * self.inheritance)
+        update_importance = 1 / tf.sqrt(tf.ones(num_of_apexes, dtype=tf.float32))
+
         fitness = tf.placeholder(shape=[self.agents], dtype=tf.float32)
-        _, apexes = tf.nn.top_k(fitness, k=int(self.agents * self.inheritance), sorted=True)
+        _, apexes = tf.nn.top_k(fitness, k=num_of_apexes, sorted=True)
 
         ######################
         # Remember best apex #
@@ -161,14 +164,17 @@ class cross_entropy():
 
         def ev_sigma(variable_row):
             variable_row = tf.gather(variable_row, apexes)
+            variable_row = tf.multiply(variable_row, update_importance)
+
             _, variance = tf.nn.moments(variable_row, 0)
             return tf.clip_by_value(tf.sqrt(variance),
                                     -self.max_sigma,
                                     self.max_sigma)
 
         def ev_mu(variable_row):
-            variables = tf.gather(variable_row, apexes) 
-            return tf.reduce_mean(variables)
+            variable_row = tf.gather(variable_row, apexes)
+            variable_row = tf.multiply(variable_row, update_importance)
+            return tf.reduce_mean(variable_row)
 
         variable_rows = tf.transpose(as_vars_stack)
 
