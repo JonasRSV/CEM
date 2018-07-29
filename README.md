@@ -1,6 +1,8 @@
 
 # Cross Entropy Method Tensorflow
 
+<a href="https://giphy.com/gifs/3tF8hnRDznA14Dxesi"> <img src="https://media.giphy.com/media/3tF8hnRDznA14Dxesi/giphy.gif" title="Cartpole demo"/></a>
+
 based on
   * https://pdfs.semanticscholar.org/c68b/9fb3ac72120f066c82f606035a2432eeef72.pdf
 
