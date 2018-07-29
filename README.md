@@ -1,6 +1,12 @@
 
 # Cross Entropy Method Tensorflow
 
+#### Run it yourself
+  1. pip3 install -r requirements.txt
+  2. python3 cartpole\_demo.py -t
+  3. (Let it run for a little while)
+  4. python3 cartpole\_demo.py -p (To see the best agent in action)
+
 <a href="https://giphy.com/gifs/3tF8hnRDznA14Dxesi"> <img src="https://media.giphy.com/media/3tF8hnRDznA14Dxesi/giphy.gif" title="Cartpole demo"/></a>
 
 based on
