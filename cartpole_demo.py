@@ -2,7 +2,7 @@ import gym
 import sys
 import numpy as np
 import tensorflow as tf
-import cross_entropy as ce
+import ce
 
 ACTION_SPACE = 2
 STATE_SPACE  = 4
@@ -15,18 +15,21 @@ MAX_ENV_STEP = 200
 
 def train(env, actor):
 
-    actor.summarize()
+    actor.summarize_sp()
     for e in range(EPOCHS):
         fitnesses = []
         for a in range(len(actor)):
-            actor.set_agent(a)
             fitness = 0
             for _ in range(ENV_ITER):
                 s = env.reset()
 
                 for _ in range(MAX_ENV_STEP):
                     env.render()
-                    action = np.argmax(actor(s.reshape(1, -1))[0])
+
+                    action = actor.pred_sp(s.reshape(-1, 1), a)
+                    action = action.reshape(-1)
+                    action = np.argmax(action)
+
                     s, r, terminal, _ = env.step(action)
 
                     fitness += r
@@ -37,9 +40,9 @@ def train(env, actor):
             fitness /= ENV_ITER
             fitnesses.append(fitness)
 
-        actor.train(fitnesses)
-        actor.add_scalar("Fitness", max(fitnesses))
-        actor.summarize()
+        actor.train_sp(fitnesses)
+        actor.summary_add_scalar("Fitness", max(fitnesses))
+        actor.summarize_sp()
 
 
     print("Running final")
@@ -47,7 +50,7 @@ def train(env, actor):
 
 
 def play(env, actor, games=20):
-    actor.set_apex()
+    apex = actor.get_apex()
 
     print("Playing")
     score = 0
@@ -57,9 +60,10 @@ def play(env, actor, games=20):
 
         while not terminal:
             env.render()
-            s = s.reshape(1, -1)
+            action = actor.pred_sp(s.reshape(-1, 1), apex)
+            action = action.reshape(-1)
+            action = np.argmax(action)
 
-            action = np.argmax(actor(s)[0])
             s, r, terminal, _ = env.step(action)
 
             score += r
@@ -75,9 +79,10 @@ def play(env, actor, games=20):
 if __name__ == "__main__":
 
     env   = gym.make(ENV)
+    actor = ce.CE(STATE_SPACE, ACTION_SPACE, agents=100, inheritance=0.1)
     with tf.Session() as sess:
-        actor = ce.cross_entropy(sess, STATE_SPACE, ACTION_SPACE, agents=100, inheritance=0.1)
 
+        actor.spi(sess)
         saver = tf.train.Saver()
 
         try:
