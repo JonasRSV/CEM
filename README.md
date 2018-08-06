@@ -15,10 +15,10 @@ based on
 
 <a href="https://giphy.com/gifs/3tF8hnRDznA14Dxesi"> <img width=400px src="https://media.giphy.com/media/3tF8hnRDznA14Dxesi/giphy.gif" title="Cartpole demo"/></a>
 
+### 200 Points is Max points
 
 ![Imgur](https://i.imgur.com/c7LwPb0.png)
 
-### 200 Points is Max points
 
 
 
