@@ -13,7 +13,7 @@ based on
   3. (Let it run for a little while)
   4. python3 cartpole\_demo.py -p (To see the best agent in action)
 
-<a href="https://giphy.com/gifs/3tF8hnRDznA14Dxesi"> <img width=400px src="https://media.giphy.com/media/3tF8hnRDznA14Dxesi/giphy.gif" title="Cartpole demo"/></a>
+<a href="https://giphy.com/gifs/3tF8hnRDznA14Dxesi"> <img width=399px src="https://media.giphy.com/media/3tF8hnRDznA14Dxesi/giphy.gif" title="Cartpole demo"/></a>
 
 ### 200 Points is Max points
 
