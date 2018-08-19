@@ -7,11 +7,15 @@ based on
 ## Requirements
   * python 3.x
 
-#### Run it yourself
-  1. pip3 install -r requirements.txt
-  2. python3 cartpole\_demo.py -t
-  3. (Let it run for a little while)
-  4. python3 cartpole\_demo.py -p (To see the best agent in action)
+Installation
+```bash
+> pip3 install -r requirements.txt
+```
+
+```bash
+> python3 cartpole_demo.py -t (Train Model)
+> python3 cartpole_demo.py -p (Play Model)
+```
 
 <a href="https://giphy.com/gifs/3tF8hnRDznA14Dxesi"> <img width=399px src="https://media.giphy.com/media/3tF8hnRDznA14Dxesi/giphy.gif" title="Cartpole demo"/></a>
 
